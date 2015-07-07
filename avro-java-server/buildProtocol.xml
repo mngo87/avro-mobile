@@ -24,7 +24,7 @@
 	      Classpath
 	     =================================================================== -->
 	<path id="full.classpath">
-		<pathelement location="lib/avro/avro-tools-1.6.2.jar"/>
+		<pathelement location="lib/avro/avro-tools-1.7.7.jar"/>
 		<pathelement location="lib/paranamer-2.2/paranamer-ant-2.2.jar"/>
 		<pathelement location="lib/paranamer-2.2/paranamer-generator-2.2.jar"/>
 		<pathelement location="lib/qdox-1.9.2/qdox-1.9.2.jar"/>

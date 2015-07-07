@@ -35,7 +35,7 @@
     <unzip dest="${staging}">
       <fileset dir="${lib}">
         <include name="*/*.jar"/>
-      	<exclude name="*/avro-tools-1.6.2.jar"/> <!-- Only used for pre-compiling schema objects -->
+      	<exclude name="*/avro-tools-1.7.7.jar"/> <!-- Only used for pre-compiling schema objects -->
       </fileset>
     </unzip>
     <copy todir="${staging}" preservelastmodified="true">
