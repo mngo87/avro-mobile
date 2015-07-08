@@ -1,0 +1,20 @@
+{
+    "namespace": "poc.automatic",
+    "name": "UserPref",
+    "type": "record",
+    "fields": [
+        {"name": "checkInEnabled", "type": "boolean", "default": false},
+         {"name": "userId", "type": "long", "default": 0},
+        {
+            "name": "audioSettings",
+            "type": {
+                "name": "audioSettings",
+                "type": "record",
+                "fields": [
+                    {"name": "brake", "type": "boolean", "default": true},
+                    {"name": "accel", "type": "boolean", "default": true}
+                ]
+            }
+        }
+    ]
+}
