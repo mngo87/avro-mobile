@@ -8,6 +8,13 @@
 
 #import "AdNetworking.h"
 
+@interface AdNetworking()
+
+- (NSString *) getContentsOfFile:(NSString*) fileName
+                         ext:(NSString*) ext;
+
+@end
+
 @implementation AdNetworking
 
 @synthesize connection=_connection;
@@ -21,6 +28,11 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     return gAdServerUrl;
 }
 
+- (id) init {
+    [self initSchema];
+    return self;
+}
+
 - (void) dealloc {
     self.connection = nil;
 	self.body = nil;
@@ -29,6 +41,11 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     avro_schema_decref(_adRequestSchema);
     avro_schema_decref(_locationSchema);
     avro_schema_decref(_adResponseSchema);
+    
+    avro_schema_decref(_userPrefSchema);
+    avro_schema_decref(_userPref2Schema);
+    avro_schema_decref(_metricSchema);
+    avro_schema_decref(_metric2Schema);
 	
     [super dealloc];
 }
@@ -65,12 +82,117 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
         // This would be a compile time error
 		return;
 	}
-        
+
+    //POC schemas
+    NSString* contentStr = [self getContentsOfFile:@"protocol/UserPref" ext:@"avsc"];
+    if (avro_schema_from_json([contentStr cStringUsingEncoding:NSUTF8StringEncoding],
+                              [contentStr length],
+                              &_userPrefSchema, &error)) {
+        NSLog(@"Unable to parse user preference schema");
+    }
+
+    contentStr = [self getContentsOfFile:@"protocol/UserPref2" ext:@"avsc"];
+    if (avro_schema_from_json([contentStr cStringUsingEncoding:NSUTF8StringEncoding],
+                              [contentStr length],
+                              &_userPref2Schema, &error)) {
+        NSLog(@"Unable to parse user preference schema");
+    }
+
+    contentStr = [self getContentsOfFile:@"protocol/Metrics" ext:@"avsc"];
+    if (avro_schema_from_json([contentStr cStringUsingEncoding:NSUTF8StringEncoding],
+                              [contentStr length],
+                              &_metricSchema, &error)) {
+        NSLog(@"Unable to parse metrics schema");
+    }
+
+    contentStr = [self getContentsOfFile:@"protocol/Metrics2" ext:@"avsc"];
+    if (avro_schema_from_json([contentStr cStringUsingEncoding:NSUTF8StringEncoding],
+                              [contentStr length],
+                              &_metric2Schema, &error)) {
+        NSLog(@"Unable to parse metrics 2 schema");
+    }
+
+    
+    
     NSLog(@"Successfully parsed ad request schema");
 }
 
+- (NSString *) getContentsOfFile:(NSString*) fileName
+                         ext:(NSString*) ext {
+    NSString *filePath = [[NSBundle mainBundle] pathForResource:fileName ofType:ext];
+    NSString *fileContents = [NSString stringWithContentsOfFile:filePath
+                                                       encoding:NSUTF8StringEncoding
+                                                          error:nil];
+    
+    return fileContents;
+}
+
+- (void) updateUserPrefRequest:(long)userId
+                checkInEnabled:(BOOL)enabled
+                       tempVar:(int)tempVar
+                    brakeAudio:(BOOL)brakeAudio {
+    avro_datum_t userPrefRequest = avro_record(_userPrefSchema);
+
+    avro_datum_t brakeAudio_datum = avro_boolean(brakeAudio);
+
+    avro_schema_t audioSettingsSchema = avro_schema_record_field_get(_userPrefSchema, "audioSettings");
+    avro_datum_t audioSettings_datum = avro_record(audioSettingsSchema);
+
+    if (avro_record_set(audioSettings_datum, "brake", brakeAudio_datum)) {
+        NSLog(@"Unable to create audioSettings %s", avro_strerror());
+        return;
+    }
+    //mem leak if returned
+    avro_datum_decref(brakeAudio_datum);
+    
+    avro_datum_t checkInEnabled_datum = avro_boolean(enabled);
+    avro_datum_t userId_datum = avro_int32(userId);
+    avro_datum_t tempVar_datum = avro_int32(tempVar);
+
+    if (avro_record_set(userPrefRequest, "audioSettings", audioSettings_datum)
+        || avro_record_set(userPrefRequest, "checkInEnabled", checkInEnabled_datum)
+        || avro_record_set(userPrefRequest, "tempVar", tempVar_datum)
+        || avro_record_set(userPrefRequest, "userId", userId_datum)) {
+        NSLog(@"Unable to create userPrefReqeust %s", avro_strerror());
+        return;
+    }
+    
+    // Clean up
+    avro_datum_decref(audioSettings_datum);
+    avro_datum_decref(checkInEnabled_datum);
+    avro_datum_decref(tempVar_datum);
+    avro_datum_decref(userId_datum);
+    
+    // Do JSON Print
+    char  *json = NULL;
+    avro_datum_to_json(userPrefRequest, 1, &json);
+    NSLog(@"UserPrefRequest in JSON\n %s", json);
+    free(json);
+
+    [self sendRequest:userPrefRequest schemaName:@"UserPref" schemaVersion:0];
+}
+
+- (void) updateUserPref2Request:(long)userId
+                 checkInEnabled:(BOOL)enabled
+                     brakeAudio:(BOOL)brakeAudio
+                     accelAudio:(BOOL)accelAudio {
+    
+}
+
+- (void) sendMetricsRequest:(long)userId
+                    tempVar:(int)tempVar
+                  btCrashes:(int)btCrashes {
+    
+}
+
+- (void) sendMetrics2Request:(long)userId
+                         vin:(NSString*)vin
+                   btCrashes:(int)btCrashes {
+    
+}
+
+
 - (void) sendAdRequest:(NSString *) adSpaceName lat:(float)lat lon:(float)lon {
-    [self initSchema];
    
     avro_datum_t adRequest = avro_record(_adRequestSchema);
     
@@ -108,19 +230,21 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     NSLog(@"AdRequest in JSON\n %s", json);
     free(json);
     
-    [self sendAdRequest:adRequest];
+    [self sendRequest:adRequest schemaName:@"AdRequest" schemaVersion:0];
     
 }
 
-- (void) sendAdRequest:(avro_datum_t) adRequest {
+- (void) sendRequest:(avro_datum_t)requestDatum
+          schemaName:(NSString*)schemaName
+       schemaVersion:(int)schemaVersion {
                           
     // Send binary data
 	NSMutableData *data = [NSMutableData data];
-    NSLog(@"Sending AdRequest....");
+    NSLog(@"Sending Request....");
     
     // Get maximum size of avro msg (json will be > than binary)
     char  *json = NULL;
-    avro_datum_to_json(adRequest, 1, &json);
+    avro_datum_to_json(requestDatum, 1, &json);
     
     if (json == nil) { 
         return;
@@ -132,7 +256,7 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     // Write request into buffer
     avro_writer_t writer = avro_writer_memory(buf, sizeof(buf));
     if (avro_write_data
-        (writer, NULL, adRequest)) {
+        (writer, NULL, requestDatum)) {
         NSLog(@"Unable to validate= %s\n",
                   avro_strerror());
         return;
@@ -146,7 +270,10 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     
     // Set headers to specify avro binary content
     NSDictionary *headerFields = [NSDictionary dictionaryWithObjectsAndKeys:@"avro/binary", @"Content-Type",
-                                  @"avro/binary", @"accept", nil];
+                                  @"avro/binary", @"accept",
+                                  schemaName, @"X-Avro-Schema-Name",
+                                  [NSString stringWithFormat:@"%d", schemaVersion], @"X-Avro-Schema-Version",
+                                  nil];
     
     NSMutableURLRequest *urlRequest = [[[NSMutableURLRequest alloc] initWithURL:[NSURL URLWithString:[AdNetworking adServerUrl]] cachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData timeoutInterval:5] autorelease];
 	
@@ -159,7 +286,7 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
     _connection = [[NSURLConnection alloc] initWithRequest:urlRequest delegate:self startImmediately:YES];
     
     // Finally clean up adrequest
-    avro_datum_decref(adRequest);
+    avro_datum_decref(requestDatum);
     avro_writer_free(writer);
 }
 

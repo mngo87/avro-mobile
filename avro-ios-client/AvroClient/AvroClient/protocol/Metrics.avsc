@@ -1,0 +1,10 @@
+{
+    "namespace": "poc.automatic",
+    "name": "Metrics",
+    "type": "record",
+    "fields": [
+        {"name": "btCrashes", "type": "int", "default": 0},
+        {"name": "tempVar", "type": "int", "default": 0},
+        {"name": "userId", "type": "long", "default": 0}
+    ]
+}

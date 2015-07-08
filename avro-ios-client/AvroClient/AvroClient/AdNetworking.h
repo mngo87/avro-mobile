@@ -27,6 +27,12 @@
     avro_schema_t _locationSchema;
     avro_schema_t _adResponseSchema;
     
+    //POC schemas
+    avro_schema_t _userPrefSchema;
+    avro_schema_t _userPref2Schema;
+    avro_schema_t _metricSchema;
+    avro_schema_t _metric2Schema;
+    
     NSURLConnection *_connection;
     NSMutableData *_body;
 	NSURLResponse *_response;
@@ -40,9 +46,27 @@
 
 - (void) initSchema;
 - (void) sendAdRequest:(NSString *) adSpaceName lat:(float)lat lon:(float)lon;
-- (void) sendAdRequest:(avro_datum_t) adRequest;
+- (void) sendRequest:(avro_datum_t)adRequest
+            schemaName:(NSString*)schemaName
+       schemaVersion:(int)schemaVersion;
 - (void) parseAdResponse:(NSData *)adResponse size:(NSUInteger)size;
 
 + (NSString *) adServerUrl;
+
+- (void) updateUserPrefRequest:(long)userId
+                checkInEnabled:(BOOL)enabled
+                       tempVar:(int)tempVar
+                    brakeAudio:(BOOL)brakeAudio;
+- (void) updateUserPref2Request:(long)userId
+                checkInEnabled:(BOOL)enabled
+                    brakeAudio:(BOOL)brakeAudio
+                    accelAudio:(BOOL)accelAudio;
+
+- (void) sendMetricsRequest:(long)userId
+                    tempVar:(int)tempVar
+                  btCrashes:(int)btCrashes;
+- (void) sendMetrics2Request:(long)userId
+                    vin:(NSString*)vin
+                  btCrashes:(int)btCrashes;
 
 @end

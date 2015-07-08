@@ -97,6 +97,7 @@
 		E39235BC1B4C870C00A4DFA3 /* value-write.c in Sources */ = {isa = PBXBuildFile; fileRef = E39235891B4C870C00A4DFA3 /* value-write.c */; };
 		E39235BD1B4C870C00A4DFA3 /* value.c in Sources */ = {isa = PBXBuildFile; fileRef = E392358A1B4C870C00A4DFA3 /* value.c */; };
 		E39235BE1B4C870C00A4DFA3 /* wrapped-buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = E392358B1B4C870C00A4DFA3 /* wrapped-buffer.c */; };
+		E39235C01B4D7FED00A4DFA3 /* protocol in Resources */ = {isa = PBXBuildFile; fileRef = E39235BF1B4D7FED00A4DFA3 /* protocol */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -195,6 +196,7 @@
 		E39235891B4C870C00A4DFA3 /* value-write.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "value-write.c"; path = "AvroClient/avro-c-1.7.7/src/value-write.c"; sourceTree = SOURCE_ROOT; };
 		E392358A1B4C870C00A4DFA3 /* value.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = value.c; path = "AvroClient/avro-c-1.7.7/src/value.c"; sourceTree = SOURCE_ROOT; };
 		E392358B1B4C870C00A4DFA3 /* wrapped-buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "wrapped-buffer.c"; path = "AvroClient/avro-c-1.7.7/src/wrapped-buffer.c"; sourceTree = SOURCE_ROOT; };
+		E39235BF1B4D7FED00A4DFA3 /* protocol */ = {isa = PBXFileReference; lastKnownFileType = folder; path = protocol; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -241,6 +243,7 @@
 		9226308E15AB2E8900535199 /* AvroClient */ = {
 			isa = PBXGroup;
 			children = (
+				E39235BF1B4D7FED00A4DFA3 /* protocol */,
 				9226314515ADA19300535199 /* AdDelegate.h */,
 				9226314115AB6F2D00535199 /* AdNetworking.h */,
 				9226314215AB6F2E00535199 /* AdNetworking.m */,
@@ -481,6 +484,7 @@
 			files = (
 				E39235331B4C86BE00A4DFA3 /* Makefile.in in Resources */,
 				E392352E1B4C86BE00A4DFA3 /* jansson_config.h.in in Resources */,
+				E39235C01B4D7FED00A4DFA3 /* protocol in Resources */,
 				E39235901B4C870C00A4DFA3 /* avro-c.pc.in in Resources */,
 				E39235321B4C86BE00A4DFA3 /* Makefile.am in Resources */,
 				E39235961B4C870C00A4DFA3 /* CMakeLists.txt in Resources */,

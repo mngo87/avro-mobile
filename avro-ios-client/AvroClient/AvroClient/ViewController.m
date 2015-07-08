@@ -25,6 +25,7 @@
     self.network = nil;
     self.version = nil;
     self.method = nil;
+    [super dealloc];
 }
 
 -(IBAction) sendRequestClickedButton:(id)sender {
@@ -44,6 +45,8 @@
           self.adSpaceName.text,
           _version.selectedSegmentIndex,
           _method.selectedSegmentIndex);
+    
+    [_network updateUserPrefRequest:123 checkInEnabled:true tempVar:999 brakeAudio:true];
     //[_network sendAdRequest:self.adSpaceName.text lat:45.123 lon:-75.456];
 }
 
