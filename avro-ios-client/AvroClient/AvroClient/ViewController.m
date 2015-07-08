@@ -15,12 +15,16 @@
 @synthesize sendRequest     = _sendRequest;
 @synthesize responseText    = _responseText;
 @synthesize network         = _network;
+@synthesize version         = _version;
+@synthesize method          = _method;
 
 -(void) dealloc {
     self.adSpaceName = nil;
     self.sendRequest = nil;
     self.responseText = nil;
     self.network = nil;
+    self.version = nil;
+    self.method = nil;
 }
 
 -(IBAction) sendRequestClickedButton:(id)sender {
@@ -36,7 +40,11 @@
     // Send Ad Request
     _network = [[AdNetworking alloc] init];
     _network.delegate = self;
-    [_network sendAdRequest:self.adSpaceName.text lat:45.123 lon:-75.456];
+    NSLog(@"adSpaceName=%@ version=%d method=%d",
+          self.adSpaceName.text,
+          _version.selectedSegmentIndex,
+          _method.selectedSegmentIndex);
+    //[_network sendAdRequest:self.adSpaceName.text lat:45.123 lon:-75.456];
 }
 
 - (void)adResponseReceived:(NSString *)response {
