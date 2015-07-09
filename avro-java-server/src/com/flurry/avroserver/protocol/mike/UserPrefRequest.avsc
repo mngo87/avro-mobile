@@ -1,0 +1,8 @@
+{
+    "namespace": "poc.automatic",
+    "name": "UserPrefRequest",
+    "type": "record",
+    "fields": [
+        {"name": "userId", "type": "long", "default": 0}
+    ]
+}

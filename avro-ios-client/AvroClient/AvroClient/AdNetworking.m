@@ -292,6 +292,11 @@ static NSString *gAdServerUrl = @"http://localhost:8080";
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response {
 	NSLog(@"HTTP connection delegate received response[%@]", response);
+    NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *) response;
+    NSLog(@"MIKE statusCode=%d", httpResponse.statusCode);
+   if (self.delegate != nil && [self.delegate respondsToSelector:@selector(adRequestDidFinsih)]) {
+       [self.delegate adRequestDidFinsih];
+   }
 	self.response = response;
 }
 

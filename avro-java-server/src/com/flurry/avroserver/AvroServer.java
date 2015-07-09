@@ -13,6 +13,11 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.mongodb.*;
+import com.mongodb.DBCollection;
+import com.mongodb.client.FindIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.generic.GenericRecord;
@@ -35,6 +40,9 @@ import com.flurry.avroserver.protocol.v1.Ad;
 import com.flurry.avroserver.protocol.v1.AdRequest;
 import com.flurry.avroserver.protocol.v1.AdResponse;
 
+import com.mongodb.util.JSON;
+import org.bson.Document;
+
 /**
  * This lightweight avro server provides a web interface for remote
  * applications. Intended to illustrate receiving and parsing an Avro request
@@ -54,9 +62,17 @@ public class
 	private static final String schemaRepoUrl = "http://localhost:2876/schema-repo";
 
 	private HashMap<String, HashMap<Integer,String>> schemaCache;
+	private MongoClient mongoClient;
 
 	private AvroServer() {
 		schemaCache = new HashMap<String, HashMap<Integer,String>>();
+
+		mongoClient = new MongoClient( "localhost" , 27017 );
+		try {
+			processSchemaFromDB();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
 	public static void main(String[] args) {
@@ -114,16 +130,17 @@ public class
 		if (fetchedSchema == null) {
 			String fetchedSchemaStr = null;
 			try {
-				URL url = new URL(schemaRepoUrl + "/" + schemaName + "/" + schemaVersion);
+				URL url = new URL(schemaRepoUrl + "/" + schemaName + "/id/" + schemaVersion);
 				HttpURLConnection conn;
 
 				//fix
 				conn = (HttpURLConnection) url.openConnection();
 				conn.setRequestMethod("GET");
 
+				//fire request
+				BufferedReader reader = new BufferedReader(
+						new InputStreamReader(conn.getInputStream()));
 				if (conn.getResponseCode() == HttpURLConnection.HTTP_OK) {
-					BufferedReader reader = new BufferedReader(
-							new InputStreamReader(conn.getInputStream()));
 
 					String inputLine;
 					StringBuffer result = new StringBuffer();
@@ -152,17 +169,17 @@ public class
 		return fetchedSchema;
 	}
 
-	protected void readRequest(InputStream is,
+	protected GenericRecord readRequest(InputStream is,
 								String contentType,
 								String schemaName,
 								int schemaVersion)
 			throws IOException, IllegalArgumentException {
 
+		GenericRecord record = null;
 		System.out.println("MIKE contentType="+contentType);
 		System.out.println("MIKE schemaName="+schemaName);
 		System.out.println("MIKE schemaVersion="+schemaVersion);
 
-		Decoder decoder = null;
 		if (contentType == null) {
 			throw new IOException("Content type not set for Request");
 		}
@@ -172,9 +189,12 @@ public class
 			throw new IllegalArgumentException("No schema found for "+schemaName+" version:"+schemaVersion);
 		}
 
+//		System.out.println("requestSchemaStr="+requestSchemaStr);
 		Schema requestSchema = new Schema.Parser().parse(requestSchemaStr);
+//		System.out.println("requestSchema="+requestSchema);
 		//assume reader and write schema same cause of schema registry
 
+		Decoder decoder = null;
 		if (contentType.equals(BINARY_CONTENT_TYPE)) {
 			decoder = DECODER_FACTORY.binaryDecoder(is, null);
 		} else if (contentType.equals(JSON_CONTENT_TYPE)) {
@@ -184,20 +204,76 @@ public class
 		}
 
 		DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(requestSchema);
-		GenericRecord record = null;
 		try {
 			// Should only be 1 request object
 			record = datumReader.read(null, decoder);
 
 			System.out.println("Generic Read Request: " + record);
 		} catch (EOFException eof) {
+			eof.printStackTrace();
 			System.err.println("End of file: " + eof.getMessage());
 		} catch (Exception ex) {
 			System.err
 					.println("Error in processing request " + ex.getMessage());
 		}
 
+		insertToMongoDB("userPref", record.toString(), schemaVersion);
+		return record;
+	}
 
+	//TODO: need to persist incoming (request) schema
+	private void processSchemaFromDB() throws IOException {
+		String schemaName = "UserPref";
+
+		Document doc = readFromMongoDB("userPref", 34);
+		int schemaVersion = doc.getInteger("schemaVersion");
+
+		String writtenSchemaStr = fetchSchema(schemaName, schemaVersion);
+		Schema writtenSchema = new Schema.Parser().parse(writtenSchemaStr);
+
+		int clientSchemaVersion = 1;
+		String clientSchemaStr = fetchSchema(schemaName, clientSchemaVersion);
+		Schema clientSchema = new Schema.Parser().parse(clientSchemaStr);
+
+		System.out.println("doc toString="+doc.toJson());
+
+		//remove version
+		//no need cause reconciled read will decode
+		//stored as json, so don't need to remove extra fields
+		//if not then remove extra field
+		Decoder decoder = DECODER_FACTORY.jsonDecoder(writtenSchema, doc.toJson());
+		//writer, reader
+		DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(writtenSchema, clientSchema);
+		//should do the translation for what mobile client sees
+		GenericRecord reconciledRecord = datumReader.read(null, decoder);
+		System.out.println("Reconciled record: "+reconciledRecord);
+	}
+
+	private void insertToMongoDB(String collection, String jsonStr, int schemaVersion) {
+		MongoDatabase db = mongoClient.getDatabase("poc");
+
+		MongoCollection<Document> coll = db.getCollection(collection);
+
+		// convert JSON to DBObject directly
+		DBObject dbObject = (DBObject) JSON.parse(jsonStr);
+		dbObject.put("schemaVersion", schemaVersion);
+		Document doc = new Document(dbObject.toMap());
+
+		coll.insertOne(doc);
+	}
+
+	private Document readFromMongoDB(String collection, long userId) {
+		MongoDatabase db = mongoClient.getDatabase("poc");
+		FindIterable<Document> iterable = db.getCollection(collection)
+				.find(new Document("userId", userId));
+		Document result = iterable.first();
+		return result;
+//		iterable.forEach(new Block<Document>() {
+//			@Override
+//			public void apply(final Document document) {
+//				System.out.println(document);
+//			}
+//		});
 	}
 
 	protected AdRequest readRequest(InputStream is, String contentType)
@@ -311,34 +387,45 @@ public class
 				System.out.println("URL: " + url + " Method: "
 						+ request.getMethod());
 
-				avroServer.readRequest(request.getInputStream(),
+
+				//look into using URLS for long term
+				//check schema type and respond appropriately
+
+				//if GET for pref, don't read body
+				//if POST for pref, update pref
+
+				//if POST for metrics, update
+
+
+				GenericRecord record = avroServer.readRequest(request.getInputStream(),
 						request.getContentType(),
 						request.getHeader("X-Avro-Schema-Name"),
 						request.getIntHeader("X-Avro-Schema-Version"));
 
-				// Read Avro request
-				AdRequest adRequest = avroServer.readRequest(
-						request.getInputStream(), request.getContentType());
 
-				// First determined return format. If accept header is specified
-				// use that, else refer to the content type
-				String acceptHeader = request.getHeader("accept");
-				String contentType = request.getContentType();
-				String returnFormat = acceptHeader != null
-						&& (acceptHeader.equals(BINARY_CONTENT_TYPE) || acceptHeader
-								.equals(JSON_CONTENT_TYPE)) ? acceptHeader
-						: contentType;
-
-				// Process request object to get response
-				byte[] adResponse = avroServer.getResponse(adRequest,
-						returnFormat);
-
-				if (adResponse != null)
-				{
-					response.setContentLength(adResponse.length);
-					response.setContentType(returnFormat);
-					response.getOutputStream().write(adResponse);
-				}
+//				// Read Avro request
+//				AdRequest adRequest = avroServer.readRequest(
+//						request.getInputStream(), request.getContentType());
+//
+//				// First determined return format. If accept header is specified
+//				// use that, else refer to the content type
+//				String acceptHeader = request.getHeader("accept");
+//				String contentType = request.getContentType();
+//				String returnFormat = acceptHeader != null
+//						&& (acceptHeader.equals(BINARY_CONTENT_TYPE) || acceptHeader
+//								.equals(JSON_CONTENT_TYPE)) ? acceptHeader
+//						: contentType;
+//
+//				// Process request object to get response
+//				byte[] adResponse = avroServer.getResponse(adRequest,
+//						returnFormat);
+//
+//				if (adResponse != null)
+//				{
+//					response.setContentLength(adResponse.length);
+//					response.setContentType(returnFormat);
+//					response.getOutputStream().write(adResponse);
+//				}
 			} catch (IllegalArgumentException e) {
 				System.err.println(e.getMessage());
 				response.setStatus(HttpServletResponse.SC_BAD_REQUEST);

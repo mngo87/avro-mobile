@@ -53,6 +53,8 @@
       	<include name="com/flurry/**/*" />
       	<include name="org/apache/avro/**/*" />
       	<include name="org/codehaus/jackson/**/*" />
+      	<include name="com/mongodb/**/*" />
+      	<include name="org/bson/**/*" />
       </fileset>
       <manifest>
         <!-- Application entry point -->
