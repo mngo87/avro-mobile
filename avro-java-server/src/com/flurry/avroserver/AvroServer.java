@@ -64,6 +64,8 @@ public class
 	private HashMap<String, HashMap<Integer,String>> schemaCache;
 	private MongoClient mongoClient;
 
+	private final int serverSchemaVersion = 1;
+
 	private AvroServer() {
 		schemaCache = new HashMap<String, HashMap<Integer,String>>();
 
@@ -150,6 +152,7 @@ public class
 					reader.close();
 
 					fetchedSchemaStr = result.toString();
+					System.out.println("fetchedSchemaStr="+fetchedSchemaStr);
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -184,15 +187,19 @@ public class
 			throw new IOException("Content type not set for Request");
 		}
 
+		//schema used by client (writer)
 		String requestSchemaStr = fetchSchema(schemaName, schemaVersion);
 		if (requestSchemaStr == null) {
 			throw new IllegalArgumentException("No schema found for "+schemaName+" version:"+schemaVersion);
 		}
-
-//		System.out.println("requestSchemaStr="+requestSchemaStr);
 		Schema requestSchema = new Schema.Parser().parse(requestSchemaStr);
-//		System.out.println("requestSchema="+requestSchema);
-		//assume reader and write schema same cause of schema registry
+
+		//use newest server (reader) for updates to force all updates to conform to newest schema
+		String readerSchemaStr = fetchSchema(schemaName, serverSchemaVersion);
+		if (readerSchemaStr == null) {
+			throw new IllegalArgumentException("No schema found for "+schemaName+" version:"+serverSchemaVersion);
+		}
+		Schema readerSchema = new Schema.Parser().parse(readerSchemaStr);
 
 		Decoder decoder = null;
 		if (contentType.equals(BINARY_CONTENT_TYPE)) {
@@ -203,7 +210,8 @@ public class
 			throw new IOException("Unknown content type for Request");
 		}
 
-		DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(requestSchema);
+		//translate to readerSchema (newest server version)
+		DatumReader<GenericRecord> datumReader = new GenericDatumReader<GenericRecord>(requestSchema, readerSchema);
 		try {
 			// Should only be 1 request object
 			record = datumReader.read(null, decoder);
@@ -217,7 +225,8 @@ public class
 					.println("Error in processing request " + ex.getMessage());
 		}
 
-		insertToMongoDB("userPref", record.toString(), schemaVersion);
+		//written as server's version of schema
+		insertToMongoDB("userPref", record.toString(), serverSchemaVersion);
 		return record;
 	}
 

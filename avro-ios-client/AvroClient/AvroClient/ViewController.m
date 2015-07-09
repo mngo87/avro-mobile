@@ -46,7 +46,7 @@
           _version.selectedSegmentIndex,
           _method.selectedSegmentIndex);
     
-    [_network updateUserPrefRequest:34 checkInEnabled:true tempVar:999 brakeAudio:false];
+    [_network updateUserPrefRequest:37 checkInEnabled:true tempVar:999 brakeAudio:false];
     //[_network sendAdRequest:self.adSpaceName.text lat:45.123 lon:-75.456];
 }
 
